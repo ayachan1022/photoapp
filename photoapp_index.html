@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>見た目の記録（Phase0プロトタイプ）</title>
+<style>
+  @font-face {
+    font-family: 'system-serif';
+    src: local('Hiragino Mincho ProN');
+  }
+  :root {
+    --bg: #F7F3F0;
+    --surface: #FFFFFF;
+    --rose: #C97A7A;
+    --rose-light: #FBEFEE;
+    --dark: #1E1B1A;
+    --muted: #8C8580;
+    --border: #E8E1DC;
+    --green: #4C7A5D;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #ddd;
+    font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+    color: var(--dark);
+    overscroll-behavior: none;
+  }
+  #app {
+    max-width: 420px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+  .screen {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .screen.active { display: flex; }
+
+  /* ---------- Home ---------- */
+  #screen-home { padding: 56px 16px 90px; gap: 14px; }
+  .hero {
+    border-radius: 20px;
+    padding: 14px;
+    background: linear-gradient(160deg, #F6DCE0, #FBEFEE 60%, #EFE7F6);
+    position: relative;
+    min-height: 210px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .hero .tag {
+    align-self: flex-start;
+    background: rgba(0,0,0,0.35); color: #fff;
+    font-size: 11px; padding: 4px 10px; border-radius: 20px;
+    margin-bottom: 8px;
+  }
+  .hero-photo {
+    position: absolute; inset: 12px 12px 60px 12px;
+    border-radius: 14px; background: #d8cfd6;
+    display: flex; align-items: center; justify-content: center;
+    color: #b3a6ae; font-size: 13px; overflow: hidden;
+  }
+  .hero-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .hero-caption { font-size: 13px; color: var(--dark); }
+  .card {
+    background: var(--surface);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+  }
+  .card.rose { background: var(--rose-light); border: none; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .num { font-family: "Hiragino Mincho ProN", serif; font-size: 20px; }
+  .track { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .track-fill { height: 100%; background: var(--rose); border-radius: 3px; }
+  .btn {
+    border: none; border-radius: 12px; padding: 10px 16px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .btn-dark { background: var(--dark); color: #fff; }
+  .btn-outline { background: var(--surface); border: 1px solid var(--border); color: var(--dark); }
+  .cta-record {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--dark); color: #fff; border-radius: 16px;
+    padding: 16px; font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  .habit-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex: none; }
+  .dot.on { background: var(--dark); }
+
+  .navbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 66px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-around;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .navbar div { font-size: 11px; color: var(--muted); text-align:center; }
+  .navbar div.active { color: var(--dark); font-weight: 600; }
+
+  /* ---------- Capture ---------- */
+  #screen-capture { background: #17140F; color: #fff; padding: 0; }
+  .cap-top {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px; padding-top: max(16px, env(safe-area-inset-top));
+  }
+  .cap-close { font-size: 22px; color: #fff; background: none; border: none; cursor: pointer; }
+  video#preview {
+    flex: 1; width: 100%; object-fit: cover; background: #333;
+    transform: scaleX(-1);
+  }
+  #overlayCanvas {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .cap-stage-wrap { position: relative; flex: 1; overflow: hidden; }
+  .cap-bottom { padding: 20px 24px 30px; text-align: center; }
+  .cap-prompt { font-size: 16px; margin-bottom: 10px; }
+  .progress-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
+  .progress-dots span { width: 7px; height: 7px; border-radius: 50%; background: #55504A; }
+  .progress-dots span.done { background: var(--rose); }
+  .progress-dots span.current { background: #fff; }
+  .shutter-wrap { display: flex; justify-content: center; align-items: center; gap: 30px; }
+  .shutter {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--rose);
+    cursor: pointer;
+  }
+  .countdown-num { font-size: 13px; color: #B7B0A9; margin-top: 14px; }
+  .timer-adjust { font-size: 12px; color: #B7B0A9; background: none; border: 1px solid #55504A; border-radius: 20px; padding: 6px 12px; }
+
+  /* ---------- Confirm ---------- */
+  #screen-confirm { padding: 16px; padding-top: max(16px, env(safe-area-inset-top)); gap: 14px; }
+  .confirm-main {
+    border-radius: 16px; overflow: hidden; background: #ddd; aspect-ratio: 3/4;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .confirm-main img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-row { display: flex; gap: 10px; }
+  .thumb {
+    flex: 1; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden;
+    background: #ddd; border: 2px solid transparent; position: relative; cursor: pointer;
+  }
+  .thumb.selected { border-color: var(--rose); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb .label { position:absolute; bottom:2px; left:0; right:0; text-align:center; font-size:9px; background:rgba(0,0,0,0.45); color:#fff; padding:2px 0; }
+  .confirm-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
+  .confirm-actions .btn { flex: 1; padding: 14px; text-align: center; }
+
+  h1.title { font-size: 17px; margin: 0 0 4px; font-family: "Hiragino Mincho ProN", serif; }
+  .toast {
+    position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,18,16,0.9); color: #fff; padding: 10px 18px; border-radius: 30px;
+    font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HOME ============ -->
+  <div class="screen active" id="screen-home">
+    <div class="row-between">
+      <div style="font-size:15px;">見た目の記録 ▾</div>
+      <div style="font-size:12px; color:var(--muted);">設定</div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-photo" id="heroPhoto">まだ過去の記録がありません</div>
+      <div class="tag" id="heroTag">記録が増えると、ここに過去の自分が表示されます</div>
+      <div class="hero-caption" id="heroCaption"></div>
+    </div>
+
+    <div class="card row-between" id="todayCard">
+      <div>
+        <div style="font-size:13px; font-weight:500;" id="todayStatus">今日の記録はまだです</div>
+        <div class="muted" id="todaySub">4種類の撮影が残っています</div>
+      </div>
+      <button class="btn btn-dark" onclick="startCapture()">記録する</button>
+    </div>
+
+    <div class="card rose">
+      <div class="row-between">
+        <div class="muted">今月の記録日数</div>
+        <div><span class="num" id="streakNum">0</span><span class="muted"> / 31日</span></div>
+      </div>
+      <div class="track"><div class="track-fill" id="streakFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="muted" id="recordCountLabel">まだ記録がありません</div>
+    </div>
+
+    <div class="navbar">
+      <div class="active">🏠<br>ホーム</div>
+      <div>📈<br>グラフ</div>
+      <div>📅<br>カレンダー</div>
+      <div>⚙️<br>設定</div>
+    </div>
+  </div>
+
+  <!-- ============ CAPTURE ============ -->
+  <div class="screen" id="screen-capture">
+    <div class="cap-top">
+      <button class="cap-close" onclick="cancelCapture()">✕</button>
+      <button class="timer-adjust" id="timerAdjustBtn" onclick="cycleTimerSeconds()">タイマー: 5秒</button>
+    </div>
+    <div class="cap-stage-wrap">
+      <video id="preview" autoplay playsinline muted></video>
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+    <div class="cap-bottom">
+      <div class="cap-prompt" id="capPrompt">次は「全身」をとるよ</div>
+      <div class="progress-dots" id="progressDots"></div>
+      <div class="shutter-wrap">
+        <div class="shutter" id="shutterBtn" onclick="beginCountdown()"></div>
+      </div>
+      <div class="countdown-num" id="countdownLabel">タップしてタイマー開始</div>
+    </div>
+  </div>
+
+  <!-- ============ CONFIRM ============ -->
+  <div class="screen" id="screen-confirm">
+    <h1 class="title">写真確認</h1>
+    <div class="muted" style="margin-bottom:4px;">気になる写真をタップすると、その1枚だけ撮り直せます</div>
+    <div class="confirm-main"><img id="confirmMainImg" src=""></div>
+    <div class="thumb-row" id="thumbRow"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="goHome()">やめる</button>
+      <button class="btn btn-dark" onclick="saveRecord()">この内容で記録する</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ---------------- 状態管理 ---------------- */
+const PHOTO_TYPES = ["全身", "後ろ全身", "足", "腕"];
+const STORAGE_KEY = "phase0_daily_records";
+const TIMER_OPTIONS = [3, 5, 8];
+
+let timerSeconds = 5;
+let stream = null;
+let captureQueue = [];      // これから撮るタイプの配列
+let capturedPhotos = {};    // { type: dataURL }
+let currentTypeIndex = 0;
+let retakeSingleType = null; // 1枚だけ撮り直す場合、そのタイプ名
+let countdownTimer = null;
+
+function loadRecords() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch (e) { return []; }
+}
+function saveRecords(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ---------------- ホーム画面 ---------------- */
+function renderHome() {
+  const records = loadRecords();
+  const today = todayStr();
+  const todayRecord = records.find(r => r.date === today);
+
+  // 今日の記録状況
+  if (todayRecord) {
+    document.getElementById('todayStatus').textContent = "今日はもう記録しました";
+    document.getElementById('todaySub').textContent = Object.keys(todayRecord.photos).length + "種類の撮影が完了";
+  } else {
+    document.getElementById('todayStatus').textContent = "今日の記録はまだです";
+    document.getElementById('todaySub').textContent = PHOTO_TYPES.length + "種類の撮影が残っています";
+  }
+
+  // 今月の記録日数
+  const now = new Date();
+  const ym = now.toISOString().slice(0, 7);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const countThisMonth = records.filter(r => r.date.startsWith(ym)).length;
+  document.getElementById('streakNum').textContent = countThisMonth;
+  document.getElementById('streakFill').style.width = Math.min(100, (countThisMonth / daysInMonth) * 100) + '%';
+
+  document.getElementById('recordCountLabel').textContent =
+    records.length === 0 ? "まだ記録がありません。最初の1枚を撮ってみましょう" : `これまでの記録：${records.length}日分`;
+
+  // ホームのランダム過去写真（3日以上前のものからランダム）
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - 3);
+  const past = records.filter(r => new Date(r.date) < threshold && Object.keys(r.photos).length > 0);
+
+  const heroPhoto = document.getElementById('heroPhoto');
+  const heroTag = document.getElementById('heroTag');
+  const heroCaption = document.getElementById('heroCaption');
+
+  if (past.length > 0) {
+    const pick = past[Math.floor(Math.random() * past.length)];
+    const types = Object.keys(pick.photos);
+    const type = types[Math.floor(Math.random() * types.length)];
+    const daysAgo = Math.round((now - new Date(pick.date)) / 86400000);
+    heroPhoto.innerHTML = `<img src="${pick.photos[type]}">`;
+    heroTag.textContent = `${daysAgo}日前のあなた`;
+    heroCaption.textContent = `${pick.date}の記録（${type}）`;
+  } else {
+    heroPhoto.innerHTML = "まだ過去の記録がありません";
+    heroTag.textContent = "記録が増えると、ここに過去の自分が表示されます";
+    heroCaption.textContent = "";
+  }
+}
+
+/* ---------------- 撮影フロー ---------------- */
+function startCapture() {
+  retakeSingleType = null;
+  captureQueue = [...PHOTO_TYPES];
+  currentTypeIndex = 0;
+  capturedPhotos = {};
+  openCamera();
+}
+function retakeOne(type) {
+  retakeSingleType = type;
+  captureQueue = [type];
+  currentTypeIndex = 0;
+  openCamera();
+}
+async function openCamera() {
+  showScreen('screen-capture');
+  renderProgressDots();
+  updatePrompt();
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    const video = document.getElementById('preview');
+    video.srcObject = stream;
+    drawOverlayForCurrentType();
+  } catch (e) {
+    showToast('カメラを使用できませんでした: ' + e.message);
+  }
+}
+function cancelCapture() {
+  stopStream();
+  if (retakeSingleType) {
+    showScreen('screen-confirm');
+  } else {
+    showScreen('screen-home');
+    renderHome();
+  }
+}
+function stopStream() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+function renderProgressDots() {
+  const wrap = document.getElementById('progressDots');
+  wrap.innerHTML = '';
+  captureQueue.forEach((t, i) => {
+    const dot = document.createElement('span');
+    if (i < currentTypeIndex) dot.classList.add('done');
+    if (i === currentTypeIndex) dot.classList.add('current');
+    wrap.appendChild(dot);
+  });
+}
+function updatePrompt() {
+  const type = captureQueue[currentTypeIndex];
+  document.getElementById('capPrompt').textContent = `次は「${type}」をとるよ`;
+  document.getElementById('countdownLabel').textContent = 'タップしてタイマー開始';
+}
+function cycleTimerSeconds() {
+  const idx = TIMER_OPTIONS.indexOf(timerSeconds);
+  timerSeconds = TIMER_OPTIONS[(idx + 1) % TIMER_OPTIONS.length];
+  document.getElementById('timerAdjustBtn').textContent = `タイマー: ${timerSeconds}秒`;
+}
+function beginCountdown() {
+  let remaining = timerSeconds;
+  const label = document.getElementById('countdownLabel');
+  document.getElementById('shutterBtn').style.pointerEvents = 'none';
+  label.textContent = `${remaining}秒後に自動シャッター`;
+  countdownTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(countdownTimer);
+      takeShot();
+    } else {
+      label.textContent = `${remaining}秒後に自動シャッター`;
+    }
+  }, 1000);
+}
+function takeShot() {
+  const video = document.getElementById('preview');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  // 鏡像プレビューに合わせて、保存画像も反転させて見た目を一致させる
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+
+  const type = captureQueue[currentTypeIndex];
+  capturedPhotos[type] = dataURL;
+
+  document.getElementById('shutterBtn').style.pointerEvents = 'auto';
+
+  if (retakeSingleType) {
+    stopStream();
+    showScreen('screen-confirm');
+    renderConfirm();
+    return;
+  }
+
+  currentTypeIndex++;
+  if (currentTypeIndex < captureQueue.length) {
+    renderProgressDots();
+    updatePrompt();
+    drawOverlayForCurrentType();
+  } else {
+    stopStream();
+    showScreen('screen-confirm');
+    renderConfirm();
+  }
+}
+function drawOverlayForCurrentType() {
+  // 前回撮影した同タイプの写真を半透明オーバーレイ表示
+  const type = captureQueue[currentTypeIndex];
+  const records = loadRecords();
+  let lastPhoto = null;
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i].photos[type]) { lastPhoto = records[i].photos[type]; break; }
+  }
+  const canvas = document.getElementById('overlayCanvas');
+  const video = document.getElementById('preview');
+  const ctx = canvas.getContext('2d');
+  function resize() {
+    canvas.width = video.clientWidth;
+    canvas.height = video.clientHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (lastPhoto) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+      };
+      img.src = lastPhoto;
+    }
+  }
+  video.onloadedmetadata = resize;
+  setTimeout(resize, 300);
+}
+
+/* ---------------- 写真確認 ---------------- */
+function renderConfirm() {
+  const types = Object.keys(capturedPhotos);
+  const mainType = types[types.length - 1];
+  document.getElementById('confirmMainImg').src = capturedPhotos[mainType];
+
+  const row = document.getElementById('thumbRow');
+  row.innerHTML = '';
+  PHOTO_TYPES.forEach(type => {
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    if (capturedPhotos[type]) {
+      div.innerHTML = `<img src="${capturedPhotos[type]}"><div class="label">${type}</div>`;
+      div.onclick = () => retakeOne(type);
+    } else {
+      div.innerHTML = `<div class="label">${type}（未撮影）</div>`;
+    }
+    row.appendChild(div);
+  });
+}
+function saveRecord() {
+  const records = loadRecords();
+  const date = todayStr();
+  let record = records.find(r => r.date === date);
+  if (!record) {
+    record = { date, photos: {} };
+    records.push(record);
+  }
+  Object.assign(record.photos, capturedPhotos);
+  saveRecords(records);
+  showToast('記録しました');
+  goHome();
+}
+function goHome() {
+  stopStream();
+  showScreen('screen-home');
+  renderHome();
+}
+
+/* ---------------- init ---------------- */
+renderHome();
+</script>
+</body>
+</html>
